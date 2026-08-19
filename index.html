@@ -1,31 +1,132 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photo to PDF</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo to PDF</title>
 
-    <link rel="stylesheet" href="style.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: "#17181c",
+          canvas: "#f6f4ef",
+          accent: "#4f5bd5"
+        },
+        fontFamily: {
+          mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+          sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"]
+        }
+      }
+    }
+  }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- jsPDF: turns the browser-side canvas images into a downloadable PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="bg-canvas font-sans text-ink min-h-screen">
 
-<div class="container">
+<main class="max-w-xl mx-auto px-6 py-12">
 
-    <h1>📄 Photo to PDF</h1>
+  <!-- Header -->
+  <p class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-4">
+    Lokal &middot; Tanpa Upload &middot; Tanpa Server
+  </p>
+  <h1 class="text-5xl font-extrabold tracking-tight leading-[1.05] mb-4">Photo to PDF</h1>
+  <p class="text-gray-500 text-lg leading-relaxed mb-10">
+    Gabungkan beberapa foto menjadi satu file PDF, langsung di browser kamu.
+    Prosesnya berjalan di perangkat sendiri — gambar tidak pernah dikirim ke mana pun.
+  </p>
 
-    <input type="file" id="imageInput" accept="image/*" multiple>
+  <!-- Card -->
+  <section class="bg-white border border-gray-200 rounded-2xl">
 
-    <div id="preview"></div>
+    <div class="p-6 sm:p-8">
 
-    <button id="convertBtn">
+      <!-- Dropzone -->
+      <div id="dropzone"
+           class="border border-dashed border-gray-300 rounded-xl px-6 py-10 text-center transition-colors">
+        <p class="text-gray-500 mb-5">Seret gambar ke sini, atau</p>
+        <label for="imageInput"
+               class="inline-block bg-ink text-white font-semibold text-sm px-6 py-3 rounded-lg cursor-pointer hover:bg-black transition-colors">
+          Pilih File
+        </label>
+        <input type="file" id="imageInput" accept="image/*" multiple class="hidden">
+        <p id="fileStatus" class="font-mono text-sm text-gray-400 mt-5">Belum ada file dipilih</p>
+      </div>
+
+      <!-- Selected image thumbnails -->
+      <div id="previewGrid" class="hidden grid grid-cols-3 sm:grid-cols-4 gap-3 mt-6"></div>
+
+      <!-- Kualitas -->
+      <div class="mt-8">
+        <div class="flex items-baseline justify-between mb-3">
+          <span class="font-semibold">Kualitas</span>
+          <span id="qualityValue" class="font-mono text-accent">80%</span>
+        </div>
+        <input type="range" id="qualitySlider" min="10" max="100" value="80" step="5" class="range-slider w-full">
+        <div class="flex justify-between font-mono text-xs text-gray-400 mt-2">
+          <span>Kecil</span><span>Seimbang</span><span>Tajam</span>
+        </div>
+      </div>
+
+      <!-- Ukuran di halaman -->
+      <div class="mt-8">
+        <div class="flex items-baseline justify-between mb-3">
+          <span class="font-semibold">Ukuran</span>
+          <span id="sizeValue" class="font-mono text-accent">100%</span>
+        </div>
+        <input type="range" id="sizeSlider" min="50" max="100" value="100" step="5" class="range-slider w-full">
+        <div class="flex justify-between font-mono text-xs text-gray-400 mt-2">
+          <span>50%</span><span>75%</span><span>100%</span>
+        </div>
+      </div>
+
+      <!-- Convert button -->
+      <button id="convertBtn" disabled
+              class="w-full mt-8 py-4 rounded-lg font-semibold bg-gray-200 text-gray-400 cursor-not-allowed transition-colors">
         Convert to PDF
-    </button>
+      </button>
 
-</div>
+    </div>
+
+    <div class="border-t border-gray-200"></div>
+
+    <!-- Result panel -->
+    <div id="resultPanel" class="p-6 sm:p-8 min-h-[220px] flex items-center justify-center text-center">
+      <div id="resultEmpty">
+        <p class="font-semibold mb-2">Belum ada PDF.</p>
+        <p class="text-gray-500 text-sm leading-relaxed max-w-xs">
+          Hasil PDF akan tampil di sini setelah kamu menekan Convert to PDF.
+        </p>
+      </div>
+      <div id="resultReady" class="hidden w-full">
+        <p class="font-semibold mb-1">PDF siap diunduh</p>
+        <p id="resultMeta" class="text-gray-500 text-sm mb-5"></p>
+        <a id="downloadLink"
+           class="inline-block bg-ink text-white font-semibold text-sm px-6 py-3 rounded-lg hover:bg-black transition-colors"
+           download="PhotoToPDF.pdf">
+          Unduh PDF
+        </a>
+      </div>
+    </div>
+
+  </section>
+
+  <p class="text-gray-400 text-sm text-center mt-8 leading-relaxed">
+    Berjalan sepenuhnya di browser memakai jsPDF &amp; Canvas API.<br>
+    Tidak ada file yang diunggah ke server.
+  </p>
+
+</main>
 
 <script src="script.js"></script>
-
 </body>
 </html>
